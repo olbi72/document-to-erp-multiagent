@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+
+# Local data and documents
+data/inbox/*
+data/approved/*
+data/review_pending/*
+data/rejected/*
+data/failed/*
+data/json_output/*
+data/json_failed/*
+data/success/*
+
+# Keep folder structure
+!data/inbox/.gitkeep
+!data/approved/.gitkeep
+!data/review_pending/.gitkeep
+!data/rejected/.gitkeep
+!data/failed/.gitkeep
+!data/reference/.gitkeep
+
+# Sensitive reference data
+data/reference/*
+!data/reference/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Utility raw/output datasets
+prepare_non_business_dataset/input/*
+prepare_non_business_dataset/output/*
+
+# Keep utility folders if needed
+!prepare_non_business_dataset/input/.gitkeep
+!prepare_non_business_dataset/output/.gitkeep
+
+# Internal project documentation
+docs/README_V1.md
+docs/README_V2.md

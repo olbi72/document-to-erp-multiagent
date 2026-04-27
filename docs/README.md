@@ -1,27 +1,27 @@
 # Document to ERP Multi-Agent System
 
-MVP-проєкт для автоматичної обробки актів виконаних робіт / актів наданих послуг.
+MVP project for automatic processing of work completion acts / service delivery acts.
 
-Система бере PDF або зображення з папки `data/inbox`, розпізнає документ через Docling, витягує структуровані дані локальною LLM через Ollama, звіряє постачальника з базою контрагентів, класифікує операцію як господарську або негосподарську та формує JSON-результат для подальшої обробки або ручної перевірки бухгалтером.
-
----
+The system takes a PDF or image from the `data/inbox` folder, processes the document through Docling, extracts structured data using a local LLM via Ollama, matches the supplier against the counterparty database, classifies the transaction as business-related or non-business-related, and generates a JSON result for further processing or manual accountant review.
 
 ## Features
 
-- OCR / document parsing через Docling.
-- Extraction структурованих реквізитів акта через локальну LLM.
-- Винесені prompt-файли в `app/prompts`.
-- Звірка контрагента з Excel-базою контрагентів.
-- Fuzzy matching назв контрагентів через RapidFuzz.
-- Перевірка історії відомих негосподарських операцій.
-- LLM-класифікація операції як:
-  - `business`
-  - `non_business`
-  - `not_identified`
-- Rule-based validation результатів.
-- HITL-flow для бухгалтерської перевірки.
-- Окремий простий `.review.json` для бухгалтера.
-- Збереження технічних і review JSON-файлів у `data/approved` або `data/review_pending`.
+* OCR / document parsing via Docling.
+* Extraction of structured act details using a local LLM.
+* Prompt files stored separately in `app/prompts`.
+* Counterparty matching against an Excel-based counterparty database.
+* Fuzzy matching of counterparty names using RapidFuzz.
+* Check against historical known non-business operations.
+* LLM-based transaction classification as:
+
+  * `business`
+  * `non_business`
+  * `not_identified`
+* Rule-based validation of extracted and enriched results.
+* HITL flow for accountant review.
+* Separate simplified `.review.json` file for the accountant.
+* Saving of technical and review JSON files to `data/approved` or `data/review_pending`.
+.
 
 ---
 

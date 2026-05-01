@@ -492,4 +492,157 @@ It supports the full flow:
 ```text
 document → OCR → extraction → counterparty matching → accounting classification → validation → JSON storage → HITL review → final approved JSON
 ```
+## Observability with Langfuse
 
+The project includes basic observability through Langfuse.
+
+Langfuse is used to trace the document processing pipeline and inspect the behavior of individual processing stages. The project does not require LangChain or LangGraph for Langfuse integration; observability is implemented directly through the Langfuse Python SDK.
+
+The main document processing trace is:
+
+```text
+process_document
+```
+
+Inside this trace, the following nested observations are recorded:
+
+```text
+process_document
+├── parser_agent_parse_document
+├── buhgalter_agent_enrich_document_case
+├── validator_agent_validate
+└── case_storage_save
+```
+
+This makes it possible to inspect:
+
+- which document was processed;
+- what data was extracted from the document;
+- how the counterparty was matched;
+- how the business / non-business decision was made;
+- whether HITL review was required;
+- where the final JSON result was saved.
+
+Langfuse configuration is controlled through `.env`:
+
+```env
+LANGFUSE_PUBLIC_KEY=your_public_key
+LANGFUSE_SECRET_KEY=your_secret_key
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+LANGFUSE_ENABLED=true
+```
+
+The Langfuse integration code is located in:
+
+```text
+app/observability/langfuse_client.py
+```
+
+---
+
+## Evaluation
+
+The project includes a basic evaluation layer based on a small Golden Dataset.
+
+The evaluation checks whether the system correctly performs the key business tasks of the pipeline:
+
+- counterparty matching;
+- final counterparty name resolution;
+- business / non-business classification;
+- HITL routing.
+
+The Golden Dataset is stored in:
+
+```text
+app/evaluation/golden_dataset.json
+```
+
+The current evaluation is deterministic. It compares actual results from generated technical JSON files with expected values from the Golden Dataset.
+
+The evaluator checks:
+
+```text
+supplier_name_correct
+counterparty_status_correct
+business_decision_correct
+hitl_routing_correct
+```
+
+The evaluation runner is located in:
+
+```text
+app/evaluation/run_evaluation.py
+```
+
+The core evaluation logic is located in:
+
+```text
+app/evaluation/evaluator.py
+```
+
+---
+
+## Running Evaluation
+
+To run evaluation, use:
+
+```bash
+python -m app.evaluation.run_evaluation
+```
+
+The command generates an evaluation report and saves it to:
+
+```text
+data/evaluation/evaluation_report.json
+```
+
+Example output:
+
+```text
+=== Evaluation Report ===
+Total cases: 2
+Passed cases: 2
+Failed cases: 0
+Accuracy: 1.0
+```
+
+The evaluation result is also sent to Langfuse as a numeric score:
+
+```text
+golden_dataset_accuracy
+```
+
+The score is attached to the Langfuse trace:
+
+```text
+run_golden_dataset_evaluation
+```
+
+This allows the evaluation result to be visible in Langfuse together with the evaluation trace output.
+
+---
+
+## Evaluation Scope
+
+The current Golden Dataset contains only a small number of cases and is intended to demonstrate the evaluation mechanism at the MVP stage.
+
+For production-level evaluation, the dataset should be expanded.
+
+Recommended target size:
+
+```text
+50+ golden examples
+```
+
+Potential future evaluation cases:
+
+- taxi services → non_business;
+- drinking water delivery → non_business;
+- internet connection → business;
+- equipment repair → business;
+- unknown counterparty → HITL required;
+- ambiguous counterparty match → HITL required;
+- invalid document date → HITL required;
+- invalid VAT amount → HITL required;
+- missing service description → HITL required;
+- decorative office plants / landscaping → non_business.

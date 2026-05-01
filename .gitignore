@@ -61,3 +61,7 @@ prepare_non_business_dataset/output/*
 # Internal project documentation
 docs/README_V1.md
 docs/README_V2.md
+
+# Evaluation generated reports
+data/evaluation/*
+!data/evaluation/.gitkeep

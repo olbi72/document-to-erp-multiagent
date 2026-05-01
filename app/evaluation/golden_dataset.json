@@ -1,0 +1,18 @@
+[
+  {
+    "case_id": "taxi_non_business",
+    "file_name": "test_act_khmelnytske_taxi_fixed.png",
+    "expected_supplier_name_final": "Хмельницьке таксі,ТОВ",
+    "expected_counterparty_status": "matched",
+    "expected_business_decision": "non_business",
+    "expected_hitl_required": false
+  },
+  {
+    "case_id": "internet_business_hitl",
+    "file_name": "2025-12-31_ТОВ _Глобальні технології України__2400 (2).png",
+    "expected_supplier_name_final": "ГЛОБАЛЬНІ ТЕХНОЛОГІЇ УКРАЇНИ, ТОВ",
+    "expected_counterparty_status": "matched",
+    "expected_business_decision": "business",
+    "expected_hitl_required": true
+  }
+]

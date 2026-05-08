@@ -65,3 +65,13 @@ docs/README_V2.md
 # Evaluation generated reports
 data/evaluation/*
 !data/evaluation/.gitkeep
+# Temporary exported html files
+1.html
+1_files/
+
+# Temporary files directly in data root
+data/*.png
+data/*.jpg
+data/*.jpeg
+data/*.pdf
+data/*.json

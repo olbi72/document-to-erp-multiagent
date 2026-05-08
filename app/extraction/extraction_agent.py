@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -64,7 +65,44 @@ class ExtractionAgent:
             if data.get("supplier_ipn") == settings.client_ipn:
                 data["supplier_ipn"] = None
 
+            data = self._normalize_without_vat(data, document_text)
+
             return data
 
         except json.JSONDecodeError as error:
             raise ValueError(f"Model did not return valid JSON: {raw_response}") from error
+
+    def _normalize_without_vat(
+        self,
+        data: dict[str, Any],
+        document_text: str,
+    ) -> dict[str, Any]:
+        document_text_lower = document_text.lower()
+
+        without_vat_markers = [
+            "без пдв",
+            "без п.д.в",
+            "без податку на додану вартість",
+            "операція без пдв",
+            "пдв: без пдв",
+            "пдв без пдв",
+        ]
+
+        vat_amount = data.get("vat_amount")
+        vat_amount_text = str(vat_amount).lower().strip() if vat_amount is not None else ""
+
+        has_without_vat_marker = any(
+            marker in document_text_lower
+            for marker in without_vat_markers
+        )
+
+        vat_field_says_without_vat = any(
+            marker in vat_amount_text
+            for marker in without_vat_markers
+        ) or vat_amount_text in ["безпдв", "без пдв", "no vat", "without vat"]
+
+        if has_without_vat_marker or vat_field_says_without_vat:
+            data["vat_amount"] = "0.00"
+            data["vat_status"] = "without_vat"
+
+        return data

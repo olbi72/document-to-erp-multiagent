@@ -1,10 +1,11 @@
+from pathlib import Path
+import json
+import requests
+
 from app.config import settings
 from app.models.document_case import DocumentCase
 from app.reference.contragent_repository import ContragentRepository
 from app.reference.non_business_repository import NonBusinessRepository
-from pathlib import Path
-import json
-import requests
 
 
 class BuhgalterAgent:
@@ -116,25 +117,64 @@ class BuhgalterAgent:
         )
 
         document_case.counterparty_result = counterparty_result
-        history_operations = self.get_history_for_counterparty(document_case)
-        document_case.history_operations = history_operations
-        history_based_result = self.build_history_based_result(document_case)
-        document_case.business_operation_result = history_based_result
+
+        if self.is_without_vat_document(document_case):
+            document_case.history_operations = []
+            base_result = self.build_without_vat_result(document_case)
+        else:
+            history_operations = self.get_history_for_counterparty(document_case)
+            document_case.history_operations = history_operations
+            base_result = self.build_history_based_result(document_case)
+
+        document_case.business_operation_result = base_result
 
         llm_classification = self.classify_business_operation_with_llm(document_case)
 
         document_case.business_operation_result = {
-            **history_based_result,
+            **base_result,
             "llm_classification": llm_classification,
             "final_decision": llm_classification.get("final_decision"),
             "requires_hitl": (
-                    history_based_result.get("requires_hitl", True)
-                    or llm_classification.get("requires_hitl", True)
+                base_result.get("requires_hitl", True)
+                or llm_classification.get("requires_hitl", True)
             ),
         }
+
         document_case.final_status = "counterparty_checked"
 
         return document_case
+
+    def is_without_vat_document(self, document_case: DocumentCase) -> bool:
+        extracted = document_case.extracted_data or {}
+
+        vat_status = extracted.get("vat_status")
+        vat_amount = extracted.get("vat_amount")
+
+        if vat_status == "without_vat":
+            return True
+
+        if vat_amount is None:
+            return False
+
+        normalized_vat = str(vat_amount).strip().replace(",", ".")
+
+        try:
+            return float(normalized_vat) == 0.0
+        except ValueError:
+            return False
+
+    def build_without_vat_result(self, document_case: DocumentCase) -> dict:
+        return {
+            "canonical_counterparty_name": self.get_canonical_counterparty_name(
+                document_case
+            ),
+            "has_non_business_history": False,
+            "history_count": 0,
+            "history_signal": "skipped_without_vat",
+            "preliminary_decision": "llm_only_without_vat",
+            "classification_path": "simplified_without_vat",
+            "requires_hitl": False,
+        }
 
     def get_history_for_counterparty(self, document_case: DocumentCase) -> list[dict]:
         counterparty_result = document_case.counterparty_result
@@ -145,15 +185,17 @@ class BuhgalterAgent:
         matched_counterparty = counterparty_result.get("matched_counterparty") or {}
 
         counterparty_name = (
-                matched_counterparty.get("full_name")
-                or matched_counterparty.get("short_name")
-                or ""
+            matched_counterparty.get("full_name")
+            or matched_counterparty.get("short_name")
+            or ""
         )
 
         if not counterparty_name:
             return []
 
-        return self.non_business_repository.find_operations_for_counterparty(counterparty_name)
+        return self.non_business_repository.find_operations_for_counterparty(
+            counterparty_name
+        )
 
     def has_history_for_counterparty(self, document_case: DocumentCase) -> bool:
         return len(document_case.history_operations) > 0
@@ -167,9 +209,9 @@ class BuhgalterAgent:
         matched_counterparty = counterparty_result.get("matched_counterparty") or {}
 
         return (
-                matched_counterparty.get("full_name")
-                or matched_counterparty.get("short_name")
-                or None
+            matched_counterparty.get("full_name")
+            or matched_counterparty.get("short_name")
+            or None
         )
 
     def summarize_history(self, document_case: DocumentCase) -> dict:
@@ -214,6 +256,7 @@ class BuhgalterAgent:
                 "history_count": 0,
                 "history_signal": "no_matched_counterparty",
                 "preliminary_decision": "not_identified",
+                "classification_path": "history_based",
                 "requires_hitl": True,
             }
 
@@ -228,6 +271,7 @@ class BuhgalterAgent:
                 "history_count": 0,
                 "history_signal": "no_non_business_history",
                 "preliminary_decision": "no_history_signal",
+                "classification_path": "history_based",
                 "requires_hitl": True,
             }
 
@@ -237,6 +281,7 @@ class BuhgalterAgent:
             "history_count": len(history_operations),
             "history_signal": "counterparty_found_in_non_business_history",
             "preliminary_decision": "non_business_history_signal",
+            "classification_path": "history_based",
             "requires_hitl": False,
         }
 
@@ -281,23 +326,52 @@ class BuhgalterAgent:
     def classify_business_operation_with_llm(self, document_case: DocumentCase) -> dict:
         policy_prompt = self.load_policy_prompt()
         extracted = document_case.extracted_data
-        history_signal = document_case.business_operation_result
+        base_signal = document_case.business_operation_result
+
+        simplified_without_vat = (
+            base_signal.get("classification_path") == "simplified_without_vat"
+        )
+
+        if simplified_without_vat:
+            extra_instruction = """
+This document is explicitly WITHOUT VAT.
+vat_amount is 0.00 and vat_status is without_vat.
+For this document, classify the operation only based on:
+- service description
+- accounting policy rules
+
+Do not require HITL only because there is no historical non-business signal.
+Use HITL only if the description is ambiguous or the decision cannot be made confidently.
+"""
+        else:
+            extra_instruction = """
+Use the historical non-business signal as an additional factor.
+If the historical signal and the service description conflict, require HITL.
+"""
 
         prompt = f"""
-    {policy_prompt}
+{policy_prompt}
 
-    Current document data:
-    supplier_name: {extracted.get("supplier_name")}
-    canonical_counterparty_name: {self.get_canonical_counterparty_name(document_case)}
-    description: {extracted.get("description")}
-    total_amount: {extracted.get("total_amount")}
-    vat_amount: {extracted.get("vat_amount")}
+Current document data:
+supplier_name: {extracted.get("supplier_name")}
+canonical_counterparty_name: {self.get_canonical_counterparty_name(document_case)}
+description: {extracted.get("description")}
+total_amount: {extracted.get("total_amount")}
+vat_amount: {extracted.get("vat_amount")}
+vat_status: {extracted.get("vat_status")}
 
-    Historical non-business signal:
-    has_non_business_history: {history_signal.get("has_non_business_history")}
-    history_count: {history_signal.get("history_count")}
-    history_signal: {history_signal.get("history_signal")}
-    """
+Classification path:
+classification_path: {base_signal.get("classification_path")}
+preliminary_decision: {base_signal.get("preliminary_decision")}
+
+Historical non-business signal:
+has_non_business_history: {base_signal.get("has_non_business_history")}
+history_count: {base_signal.get("history_count")}
+history_signal: {base_signal.get("history_signal")}
+
+Additional instruction:
+{extra_instruction}
+"""
 
         response = requests.post(
             f"{settings.ollama_base_url}/api/generate",
@@ -321,7 +395,7 @@ class BuhgalterAgent:
 
         try:
             return json.loads(cleaned_response)
-        except json.JSONDecodeError as error:
+        except json.JSONDecodeError:
             return {
                 "policy_decision": "not_identified",
                 "final_decision": "not_identified",

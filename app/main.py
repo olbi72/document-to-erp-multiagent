@@ -62,7 +62,7 @@ def main() -> None:
     files = [
         item
         for item in inbox_path.iterdir()
-        if item.is_file() and item.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg"]
+        if item.is_file() and item.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg", ".html"]
     ]
 
     if not files:

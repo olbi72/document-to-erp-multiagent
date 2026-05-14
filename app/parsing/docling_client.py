@@ -15,8 +15,13 @@ class DoclingClient:
             data = {
                 "to_formats": "md",
                 "do_ocr": "true",
+                "force_ocr": "false",
                 "ocr_engine": "tesseract",
                 "ocr_lang": ["ukr", "eng"],
+                "do_table_structure": "true",
+                "table_mode": "accurate",
+                "table_cell_matching": "false",
+                "pipeline": "standard",
             }
 
             response = requests.post(url, files=files, data=data, timeout=120)

@@ -7,6 +7,7 @@ class FileDetector:
         ".png": "image",
         ".jpg": "image",
         ".jpeg": "image",
+        ".html": "html",
     }
 
     def detect(self, file_path: Path) -> str:

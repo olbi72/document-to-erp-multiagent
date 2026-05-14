@@ -75,3 +75,7 @@ data/*.jpg
 data/*.jpeg
 data/*.pdf
 data/*.json
+
+# Debug/generated test files
+data/debug/
+data/clean_invoice_test.html
